@@ -44,7 +44,7 @@ app.use((error, req, res, next) => {
 });
 
 mongoose.connect(url, { useUnifiedTopology: true, useNewUrlParser: true }).then((res) => {
-    app.listen(8000)
+    app.listen(process.env.PORT || 5000)
     console.log('Connected to database')
 }).catch((err) => {
     console.log(err)

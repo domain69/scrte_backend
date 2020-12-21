@@ -4,8 +4,9 @@ const cors = require('cors')
 const mongoose = require('mongoose')
 const mongooseMethods = require('./mongoose')
 const HttpError = require('./models/http-error')
+require('dotenv').config();
 
-const url = 'mongodb+srv://admin:admin@cluster0.gglkw.mongodb.net/scrte?retryWrites=true&w=majority'
+const url = process.env.URL
 
 const app = express();
 app.use(cors())
@@ -15,6 +16,8 @@ app.use(bodyParser.json())
 
 app.get('/pages', mongooseMethods.getAllPages)
 app.get('/pages/:userId', mongooseMethods.getPageswithUserId)
+app.get('/page/:id', mongooseMethods.getPageWithId)
+app.get('/delete/page/:id', mongooseMethods.deletePageAndBlock)
 
 app.get('/blocks/:docId', mongooseMethods.getBlocksWithinDoc)
 app.get('/clear', mongooseMethods.removeAllBlocks)
@@ -27,6 +30,8 @@ app.put('/page/:id', mongooseMethods.updatePage)
 
 app.get('/delete/block/:id', mongooseMethods.deleteBlockWithId)
 app.patch('/update/', mongooseMethods.saveDocumentChanges)
+
+app.post('/template/getComponent/', mongooseMethods.getComponent)
 //app.post('/uploadNewPage', mongooseMethods.pageWithBlocks)
 
 app.use((req, res, next) => {

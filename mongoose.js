@@ -3,6 +3,9 @@ const mongoose = require('mongoose')
 const Pages = require('./models/pages');
 const Block = require('./models/block')
 const HttpError = require('./models/http-error');
+var request = require('request');
+const { json } = require('body-parser');
+const { toHtml } = require('./jsonToHtml')
 
 const getAllPages = async (req, res, next) => {
     const pages = await Pages.find().exec();
@@ -36,7 +39,8 @@ const createPage = async (req, res, next) => {
         _id: req.body.id,
         type: req.body.type,
         children: req.body.children,
-        userId: req.body.userId
+        userId: req.body.userId,
+        title: req.body.title
     })
     try {
         await createdPage.save()
@@ -216,6 +220,168 @@ const saveDocumentChanges = async (req, res, next) => {
     }
 
 }
+const getPageWithId = async (req, res, next) => {
+    let page
+    try {
+        page = await Pages.find({ _id: req.params.id })
+
+    } catch (err) {
+        const error = new HttpError(
+            'Something went wrong, could not find a page.',
+            500
+        );
+        return next(error);
+    }
+    if (!page) {
+        const error = new HttpError(
+            'Could not find page for the provided id.',
+            404
+        );
+        return next(error);
+    }
+    res.json({ page })
+}
+const deletePageAndBlock = async (req, res, next) => {
+    let page
+    let sess
+    let deletedBlock
+    let updateBlock
+    try {
+        sess = await mongoose.startSession();
+        sess.startTransaction()
+        page = await Pages.findByIdAndDelete(req.params.id, { session: sess })
+        deletedBlock = await Block.deleteMany({ $and: [{ docsId: req.params.id }, { docsId: { $size: 1 } }] }, { session: sess })
+        updateBlock = await Block.updateMany({ docsId: req.params.id }, { $pull: { docsId: req.params.id } }, { session: sess })
+        await sess.commitTransaction();
+    } catch (err) {
+        await sess.abortTransaction();
+
+        const error = new HttpError(
+            'Something went wrong, could not find a page.',
+            500
+        );
+        return next(error);
+    }
+
+    res.status(202).json({ message: 'Successfully Deleted Page' })
+}
+
+const getComponent = async (req, res, next) => {
+    let { uid, entryId, visualId } = req.body;
+    const base_url = 'api.contentstack.io'
+
+    const headers = {
+        'api_key': 'blt2cf669e5016d5e07',
+        'access_token': 'cs81606189c4e950040a23abe0',
+        'environment': 'development',
+        'authorization': 'csf9e7a0d0e7e9d04e14215f9a'
+    }
+    request({
+        headers,
+        uri: `https://${base_url}/v3/content_types/${uid}/entries/${entryId}`,
+        method: 'GET'
+    }, function (err, response, body) {
+        let actualData = JSON.parse(body)['entry']
+        let templateJson = {
+            type: 'template',
+            children: [
+                {
+                    "type": "paragraph",
+                    "children": [
+                        {
+                            "text": ""
+                        }
+                    ]
+                },
+                {
+                    "type": "paragraph",
+                    "attrs": {
+                        "id": 'test1',
+                        "field_attrs": {
+                            "display_name": "Title",
+                            "uid": "title",
+                            "data_type": "text",
+                            "mandatory": true,
+                            "unique": true,
+                            "field_metadata": {
+                                "_default": true,
+                                "version": 3
+                            },
+                            "multiple": false,
+                            "non_localizable": false
+                        },
+                        "styles": {
+                            "paddingTop": "14px",
+                            "paddingBottom": "23px",
+                            "font-family": "cursive",
+                            "fontWeight": "600"
+                        }
+                    },
+                    "children": [
+                        {
+                            "text": "Title"
+                        }
+                    ]
+                },
+                {
+                    "type": "paragraph",
+                    "attrs": {
+                        "field_attrs": {
+                            "display_name": "URL",
+                            "uid": "url",
+                            "data_type": "text",
+                            "mandatory": true,
+                            "field_metadata": {
+                                "_default": true,
+                                "version": 3
+                            },
+                            "multiple": false,
+                            "unique": false,
+                            "non_localizable": false
+                        }
+                    },
+                    "children": [
+                        {
+                            "text": "URL"
+                        }
+                    ]
+                },
+                {
+                    "type": "paragraph",
+                    "attrs": {
+                        "field_attrs": {
+                            "data_type": "text",
+                            "display_name": "Banner",
+                            "uid": "multi_line",
+                            "field_metadata": {
+                                "description": "",
+                                "default_value": "",
+                                "multiline": true,
+                                "version": 3
+                            },
+                            "format": "",
+                            "error_messages": {
+                                "format": ""
+                            },
+                            "multiple": false,
+                            "mandatory": false,
+                            "unique": false,
+                            "non_localizable": false
+                        }
+                    },
+                    "children": [
+                        {
+                            "text": "Banner"
+                        }
+                    ]
+                }
+            ]
+        }
+        console.log(err)
+        res.status(200).send(toHtml(templateJson, actualData))
+    });
+}
+
 exports.getAllPages = getAllPages;
 exports.getPageswithUserId = getPageswithUserId;
 exports.createPage = createPage;
@@ -227,3 +393,6 @@ exports.updateBlock = updateBlock;
 exports.updatePage = updatePage;
 exports.deleteBlockWithId = deleteBlockWithId;
 exports.saveDocumentChanges = saveDocumentChanges;
+exports.getPageWithId = getPageWithId;
+exports.deletePageAndBlock = deletePageAndBlock;
+exports.getComponent = getComponent;

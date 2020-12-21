@@ -19,5 +19,8 @@
     "mongoose": "^5.10.14",
     "nodemon": "^2.0.6",
     "request": "^2.88.2"
+  },
+  "engines": {
+    "node": "14.x"
   }
 }

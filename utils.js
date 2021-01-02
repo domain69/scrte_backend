@@ -1,4 +1,4 @@
-const { json } = require('body-parser')
+require('dotenv').config();
 const request = require('./await-request')
 const Template = require('./models/template')
 
@@ -26,13 +26,13 @@ const getTemplate = async (content_uid, visual_id) => {
     }
     return templateJson
 }
-const base_url = `api.contentstack.io`
+const base_url = process.env.base_url
 
 const headers = {
-    'api_key': 'blt2cf669e5016d5e07',
-    'access_token': 'cs81606189c4e950040a23abe0',
-    'environment': 'development',
-    'authorization': 'csf9e7a0d0e7e9d04e14215f9a'
+    'api_key': process.env.api_key,
+    'access_token': process.env.access_token,
+    'environment': process.env.environment,
+    'authorization': process.env.authorization
 }
 
 const multiValueType = ['grid-list', 'list-container']

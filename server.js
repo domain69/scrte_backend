@@ -20,7 +20,7 @@ app.get('/page/:id', mongooseMethods.getPageWithId)
 app.get('/delete/page/:id', mongooseMethods.deletePageAndBlock)
 
 app.get('/blocks/:docId', mongooseMethods.getBlocksWithinDoc)
-app.get('/clear', mongooseMethods.removeAllBlocks)
+//app.get('/clear', mongooseMethods.removeAllBlocks)
 
 app.post('/addPages', mongooseMethods.createPage)
 app.post('/addBlocks', mongooseMethods.createMultipleBlock)
@@ -33,6 +33,12 @@ app.patch('/update/', mongooseMethods.saveDocumentChanges)
 
 app.post('/template/getComponent/', mongooseMethods.getComponent)
 //app.post('/uploadNewPage', mongooseMethods.pageWithBlocks)
+
+app.get('/template/getAllVisualPage/:content_uid', mongooseMethods.getAllVisualPage)
+app.get('/template/getVisualPageWithId/:content_uid/:visual_id', mongooseMethods.getVisualPageWithId)
+
+app.post('/template/newVisualPage', mongooseMethods.createNewVisualPage)
+app.put('/template/updateVisualPage/:content_uid/:visual_id', mongooseMethods.updateVisualPage)
 
 app.use((req, res, next) => {
     console.log(req.method, req.url)
@@ -47,6 +53,8 @@ app.use((error, req, res, next) => {
     res.status(error.code || 500);
     res.json({ message: error.message || 'An unknown error occurred!' });
 });
+
+
 
 mongoose.connect(url, { useUnifiedTopology: true, useNewUrlParser: true }).then((res) => {
     app.listen(process.env.PORT || 5000)

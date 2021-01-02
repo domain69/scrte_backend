@@ -2,11 +2,12 @@ const mongoose = require('mongoose')
 
 const Pages = require('./models/pages');
 const Block = require('./models/block')
+const Template = require('./models/template')
 const HttpError = require('./models/http-error');
 var request = require('request');
 const { json } = require('body-parser');
 const { toHtml } = require('./jsonToHtml')
-
+const { getValues, getSingleEntry } = require('./utils')
 const getAllPages = async (req, res, next) => {
     const pages = await Pages.find().exec();
     res.json(pages)
@@ -268,120 +269,144 @@ const deletePageAndBlock = async (req, res, next) => {
 
 const getComponent = async (req, res, next) => {
     let { uid, entryId, visualId } = req.body;
-    const base_url = 'api.contentstack.io'
 
-    const headers = {
-        'api_key': 'blt2cf669e5016d5e07',
-        'access_token': 'cs81606189c4e950040a23abe0',
-        'environment': 'development',
-        'authorization': 'csf9e7a0d0e7e9d04e14215f9a'
-    }
-    request({
-        headers,
-        uri: `https://${base_url}/v3/content_types/${uid}/entries/${entryId}`,
-        method: 'GET'
-    }, function (err, response, body) {
-        let actualData = JSON.parse(body)['entry']
-        let templateJson = {
-            type: 'template',
-            children: [
-                {
-                    "type": "paragraph",
-                    "children": [
-                        {
-                            "text": ""
-                        }
-                    ]
-                },
-                {
-                    "type": "paragraph",
-                    "attrs": {
-                        "id": 'test1',
-                        "field_attrs": {
-                            "display_name": "Title",
-                            "uid": "title",
-                            "data_type": "text",
-                            "mandatory": true,
-                            "unique": true,
-                            "field_metadata": {
-                                "_default": true,
-                                "version": 3
-                            },
-                            "multiple": false,
-                            "non_localizable": false
-                        },
-                        "styles": {
-                            "paddingTop": "14px",
-                            "paddingBottom": "23px",
-                            "font-family": "cursive",
-                            "fontWeight": "600"
-                        }
-                    },
-                    "children": [
-                        {
-                            "text": "Title"
-                        }
-                    ]
-                },
-                {
-                    "type": "paragraph",
-                    "attrs": {
-                        "field_attrs": {
-                            "display_name": "URL",
-                            "uid": "url",
-                            "data_type": "text",
-                            "mandatory": true,
-                            "field_metadata": {
-                                "_default": true,
-                                "version": 3
-                            },
-                            "multiple": false,
-                            "unique": false,
-                            "non_localizable": false
-                        }
-                    },
-                    "children": [
-                        {
-                            "text": "URL"
-                        }
-                    ]
-                },
-                {
-                    "type": "paragraph",
-                    "attrs": {
-                        "field_attrs": {
-                            "data_type": "text",
-                            "display_name": "Banner",
-                            "uid": "multi_line",
-                            "field_metadata": {
-                                "description": "",
-                                "default_value": "",
-                                "multiline": true,
-                                "version": 3
-                            },
-                            "format": "",
-                            "error_messages": {
-                                "format": ""
-                            },
-                            "multiple": false,
-                            "mandatory": false,
-                            "unique": false,
-                            "non_localizable": false
-                        }
-                    },
-                    "children": [
-                        {
-                            "text": "Banner"
-                        }
-                    ]
-                }
-            ]
+    getSingleEntry(uid, entryId).then(async (val) => {
+        let actualData = val
+        let templateJson
+        try {
+            templateJson = await Template.findOne({ content_uid: uid, visual_id: visualId }).exec()
+        } catch (err) {
+            const error = new HttpError(
+                'Something went wrong, could not find a Template.',
+                500
+            );
+            return next(error);
         }
-        console.log(err)
-        res.status(200).send(toHtml(templateJson, actualData))
-    });
+        if (!templateJson) {
+            const error = new HttpError(
+                'Could not find Template for the provided visual id.',
+                404
+            );
+            return next(error);
+        }
+        templateJson.type = "template"
+
+        getValues(templateJson.children, actualData).then((val) => {
+            let tempVal = {
+                type: 'template',
+                children: [
+                    { text: 'Error' }
+                ]
+            }
+            if (val) {
+                tempVal.children = val
+            }
+            res.status(200).send(toHtml(tempVal))
+        }).catch((err) => {
+            console.log(err)
+            res.status(400).send("<p>Error while fetching Data</p>")
+
+        })
+    })
+
 }
 
+const getAllVisualPage = async (req, res, next) => {
+    const { content_uid } = req.params
+    let content;
+    try {
+        content = await Template.find({ content_uid: content_uid })
+    } catch (err) {
+        const error = new HttpError(
+            'Something went wrong, could not find a Template.',
+            500
+        );
+        return next(error);
+    }
+
+    res.json({ content })
+}
+const getVisualPageWithId = async (req, res, next) => {
+    const { content_uid, visual_id } = req.params
+    let content;
+    try {
+        content = await Template.find({ content_uid: content_uid, visual_id: visual_id })
+    } catch (err) {
+        const error = new HttpError(
+            'Something went wrong, could not find a Template.',
+            500
+        );
+        return next(error);
+    }
+    if (content.length !== 0) {
+        content = content[0]
+        res.json({ content })
+    } else {
+        res.json({ message: "No Visual Page with Given Id" })
+    }
+}
+const createNewVisualPage = async (req, res, next) => {
+    let content;
+    try {
+        content = await Template.find({ content_uid: req.body.content_uid, visual_id: req.body.visual_id })
+    } catch (err) {
+        const error = new HttpError(
+            'Something went wrong, could not find a Template.',
+            500
+        );
+        return next(error);
+    }
+    if (content.length !== 0) {
+        res.status(406).json({ error: "Visual page with given id already exists" })
+        return
+    }
+    const createdVisualPage = new Template({
+        _id: req.body.id,
+        children: req.body.children,
+        visual_id: req.body.visual_id,
+        content_uid: req.body.content_uid,
+        preview: req.body.preview
+    })
+    try {
+        await createdVisualPage.save()
+    } catch (err) {
+        console.log(err)
+        const error = new HttpError(
+            'Creating pages failed, please try again.',
+            500
+        );
+        return next(error);
+    }
+
+    res.status(201).json({ page: createdVisualPage });
+}
+const updateVisualPage = async (req, res, next) => {
+    const { visual_id, content_uid } = req.params
+    let body = req.body
+
+    let update = {}
+    if (body.children) {
+        update.children = body.children
+    }
+    if (body.preview) {
+        update.preview = body.preview
+    }
+
+    try {
+        await Template.findOneAndUpdate({ content_uid: content_uid, visual_id: visual_id }, update)
+
+        res.status(201).json({ message: 'Successfully Updated' })
+
+    } catch (err) {
+        console.log(err)
+        const error = new HttpError(
+            'Updating pages failed, please try again.',
+            500
+        );
+        return next(error);
+    }
+
+}
 exports.getAllPages = getAllPages;
 exports.getPageswithUserId = getPageswithUserId;
 exports.createPage = createPage;
@@ -396,3 +421,7 @@ exports.saveDocumentChanges = saveDocumentChanges;
 exports.getPageWithId = getPageWithId;
 exports.deletePageAndBlock = deletePageAndBlock;
 exports.getComponent = getComponent;
+exports.getAllVisualPage = getAllVisualPage;
+exports.getVisualPageWithId = getVisualPageWithId;
+exports.createNewVisualPage = createNewVisualPage;
+exports.updateVisualPage = updateVisualPage;

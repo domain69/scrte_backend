@@ -45,9 +45,9 @@ const multiValueField = {
 const getSingleEntry = async (uid, entryId) => {
     // console.log(uid, entryId)
     const entryUrl = `https://${base_url}/v3/content_types/${uid}/entries/${entryId}`
-    return request({ headers, uri: entryUrl, method: "GET" }).then((val) => {
+    return request({ headers, url: entryUrl, method: "GET" }).then((val) => {
         return JSON.parse(val)["entry"]
-    }).catch((err) => { console.log(err) })
+    }).catch((err) => { console.log('50', err) })
 }
 
 const getValuesHelper = async (el, res, parent) => {

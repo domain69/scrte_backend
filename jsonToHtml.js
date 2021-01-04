@@ -34,7 +34,7 @@ const ELEMENT_TYPES = {
     'ordered-list': (attrs, child) => (`<ol ${attrs}>${child}</ol>`),
     'unordered-list': (attrs, child) => (`<ul ${attrs}>${child}</ul>`),
     'list-item': (attrs, child) => (`<li ${attrs}>${child}</li>`),
-    'check-list': (attrs, child) => (`<div ${attrs}><span class="scrte-vp-checklist-checkbox"><input type="checkbox" ${child.checked} disabled></span><span class="${child.className}">${child.children}</span></div>`),
+    'check-list': (attrs, child) => (`<div ${attrs}><span class="scrte-vp-checklist-checkbox"><input type="checkbox" ${child.checked} disabled /></span><span class="${child.className}">${child.children}</span></div>`),
     'table': (attrs, child) => (`<table ${attrs}>${child}</table>`),
     'table-head': (attrs, child) => (`<thead ${attrs}>${child}</thead>`),
     'table-row': (attrs, child) => (`<tr ${attrs}>${child}</tr>`),
@@ -159,7 +159,7 @@ const toHtml = (jsonValue) => {
         if (jsonValue.type === "table") {
             let colWidths = attrs.colWidths
             let col = '';
-            Array.from(colWidths).map((child, index) => col += `<col style="width:${child}px"/>`)
+            Array.from(colWidths).map((child, index) => col += `<col style="width:${child}px"></col>`)
             let colgroup = `<colgroup>${col}</colgroup>`
             children = colgroup + children
         }

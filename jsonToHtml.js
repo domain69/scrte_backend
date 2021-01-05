@@ -167,6 +167,13 @@ const toHtml = (jsonValue) => {
             htmlStyle = `style="${htmlStyle}"`
             newStyle += htmlStyle
         }
+        if (attrs.eventListeners) {
+            let allListeners = ''
+            Object.keys(attrs.eventListeners).forEach((key) => {
+                allListeners += ` ${key}='${attrs.eventListeners[key]}'`
+            })
+            newStyle += allListeners
+        }
         // REFERENCE VALUE
         return ELEMENT_TYPES[jsonValue.type](newStyle, children)
     }

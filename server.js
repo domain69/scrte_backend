@@ -40,6 +40,8 @@ app.get('/template/getVisualPageWithId/:content_uid/:visual_id', mongooseMethods
 app.post('/template/newVisualPage', mongooseMethods.createNewVisualPage)
 app.put('/template/updateVisualPage/:content_uid/:visual_id', mongooseMethods.updateVisualPage)
 
+app.get('/api/getPage/:pageId', mongooseMethods.getCompletePagewithPageId)
+
 
 app.get('/snippet/:userId', mongooseMethods.getAllSnippetWithUserId)
 app.delete('/delete/snippet/:layoutId', mongooseMethods.deleteLayout)

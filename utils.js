@@ -1,6 +1,9 @@
 require('dotenv').config();
 const request = require('./await-request')
 const Template = require('./models/template')
+const { v4 } = require('uuid')
+
+const generateId = () => v4().split('-').join('')
 
 const errorJson = {
     children: [
@@ -168,3 +171,4 @@ const getValues = async (value, res, parent = {}) => {
 }
 exports.getValues = getValues;
 exports.getSingleEntry = getSingleEntry;
+exports.generateId = generateId;

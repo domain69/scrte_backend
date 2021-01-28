@@ -1,13 +1,12 @@
 const mongoose = require('mongoose')
+const v4 = require('uuid')
 
 const Pages = require('./models/pages');
 const Block = require('./models/block')
 const Template = require('./models/template')
 const HttpError = require('./models/http-error');
-var request = require('request');
-const { json } = require('body-parser');
 const { toHtml } = require('./jsonToHtml')
-const { getValues, getSingleEntry } = require('./utils')
+const { getValues, getSingleEntry, generateId } = require('./utils')
 const getAllPages = async (req, res, next) => {
     const pages = await Pages.find().exec();
     res.json(pages)
@@ -407,7 +406,7 @@ const updateVisualPage = async (req, res, next) => {
 
 }
 
-const getLayoutChild = async (json, blocksId = []) => {
+const getLayoutChild = async (json, blocksId = [], docId = "") => {
 
     if (json.hasOwnProperty('text')) {
         return json
@@ -415,18 +414,29 @@ const getLayoutChild = async (json, blocksId = []) => {
     if (typeof json === "string") {
         try {
             let block = await Block.findOne({ _id: json }, {}, { lean: true })
-            let newblock = { ...block }
+            let newblock;
+            if (block?.type) {
+                newblock = { ...block }
+            } else {
+                return {
+                    id: generateId(),
+                    type: "error-block",
+                    attrs: {},
+                    docsId: [docId],
+                    children: [{ text: "This Block is currently unavailable." }]
+                }
+            }
             newblock.id = newblock._id
             blocksId.push(newblock.id)
             delete newblock._id
-            let response = await getLayoutChild(newblock, blocksId)
+            let response = await getLayoutChild(newblock, blocksId, docId)
 
             return response
         } catch (err) {
             console.log(err)
         }
     }
-    let children = await Promise.all(Array.from(json?.children || []).map(async (child) => (await getLayoutChild(child, blocksId))))
+    let children = await Promise.all(Array.from(json?.children || []).map(async (child) => (await getLayoutChild(child, blocksId, docId))))
     let result = { ...json, children }
     if (result._id) {
         result.id = result._id
@@ -487,6 +497,33 @@ const deleteLayout = async (req, res, next) => {
     }
 
 }
+
+const getCompletePagewithPageId = async (req, res, next) => {
+    const { pageId } = req.params;
+
+    let page;
+    try {
+        page = await Pages.findById(pageId, {}, { lean: true })
+    }
+    catch (err) {
+        const error = new HttpError(
+            'Something went wrong, could not find a Page.',
+            500
+        );
+        return next(error);
+    }
+    if (page) {
+
+        let pageJsonChildren = await Promise.all(Array.from(page.children).map(async (child) => (await getLayoutChild(child, [], pageId))))
+        let result = { ...page }
+        delete result._id
+        result.id = pageId
+        result.children = pageJsonChildren
+        res.json({ page: result })
+    } else {
+        res.json({ error: "No Page with Given Id" })
+    }
+}
 exports.getAllPages = getAllPages;
 exports.getPageswithUserId = getPageswithUserId;
 exports.createPage = createPage;
@@ -507,3 +544,4 @@ exports.createNewVisualPage = createNewVisualPage;
 exports.updateVisualPage = updateVisualPage;
 exports.getAllSnippetWithUserId = getAllSnippetWithUserId;
 exports.deleteLayout = deleteLayout;
+exports.getCompletePagewithPageId = getCompletePagewithPageId;

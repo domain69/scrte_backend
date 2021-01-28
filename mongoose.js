@@ -166,8 +166,7 @@ const deleteBlockWithId = async (req, res, next) => {
 
 }
 const saveDocumentChanges = async (req, res, next) => {
-    let { doc, newBlocks, updateBlocks, deletedNodes } = req.body
-
+    let { doc, updateBlocks, deletedNodes } = req.body
     let page;
     try {
         page = await Pages.findById(doc.id);
@@ -200,9 +199,9 @@ const saveDocumentChanges = async (req, res, next) => {
         //         console.log('DeleteBlock', err)
         //     }
         // })
-        await Block.insertMany(newBlocks, { session: sess })
+
         for (const block of updateBlocks) {
-            await Block.updateOne({ _id: block.id }, { attrs: block.attrs, children: block.children, type: block.type }, { session: sess })
+            await Block.updateOne({ _id: block.id }, { attrs: block.attrs, children: block.children, type: block.type, _id: block.id, docsId: block.docsId }, { session: sess, upsert: true })
         }
         // Array.from(updateBlocks).map(async (element) => {
         //     try {
@@ -407,6 +406,87 @@ const updateVisualPage = async (req, res, next) => {
     }
 
 }
+
+const getLayoutChild = async (json, blocksId = []) => {
+
+    if (json.hasOwnProperty('text')) {
+        return json
+    }
+    if (typeof json === "string") {
+        try {
+            let block = await Block.findOne({ _id: json }, {}, { lean: true })
+            let newblock = { ...block }
+            newblock.id = newblock._id
+            blocksId.push(newblock.id)
+            delete newblock._id
+            let response = await getLayoutChild(newblock, blocksId)
+
+            return response
+        } catch (err) {
+            console.log(err)
+        }
+    }
+    let children = await Promise.all(Array.from(json?.children || []).map(async (child) => (await getLayoutChild(child, blocksId))))
+    let result = { ...json, children }
+    if (result._id) {
+        result.id = result._id
+        delete result._id
+    }
+    return result
+}
+const getAllSnippetWithUserId = async (req, res, next) => {
+    const { userId } = req.params
+    let content;
+    try {
+        content = await Block.find({ "type": "layout", "attrs.userId": userId }, {}, { lean: true })
+    } catch (err) {
+        const error = new HttpError(
+            'Something went wrong, could not find a Template.',
+            500
+        );
+        return next(error);
+    }
+    if (content.length !== 0) {
+
+        let layouts = await Promise.all(Array.from(content).map(async (child) => (await getLayoutChild(child))))
+        res.json({ layouts: layouts })
+    } else {
+        res.json({ message: "No Layout with Given Id" })
+    }
+}
+
+const deleteLayout = async (req, res, next) => {
+    const { layoutId } = req.params;
+    let content;
+    let blocksId = []
+    try {
+        content = await Block.find({ "type": "layout", "_id": layoutId }, {}, { lean: true })
+        blocksId.push(layoutId)
+    } catch (err) {
+        const error = new HttpError(
+            'Something went wrong, could not find a Template.',
+            500
+        );
+        return next(error);
+    }
+    if (content.length !== 0) {
+        await Promise.all(Array.from(content).map(async (child) => (await getLayoutChild(child, blocksId))))
+        try {
+            await Block.deleteMany({ _id: { $in: blocksId } })
+        }
+        catch (err) {
+            const error = new HttpError(
+                'Something went wrong, could not delete Block.',
+                500
+            );
+            return next(error);
+        }
+        res.json({ success: "Delete successfully" })
+    } else {
+        res.json({ message: "No Layout with Given Id" })
+    }
+
+}
 exports.getAllPages = getAllPages;
 exports.getPageswithUserId = getPageswithUserId;
 exports.createPage = createPage;
@@ -425,3 +505,5 @@ exports.getAllVisualPage = getAllVisualPage;
 exports.getVisualPageWithId = getVisualPageWithId;
 exports.createNewVisualPage = createNewVisualPage;
 exports.updateVisualPage = updateVisualPage;
+exports.getAllSnippetWithUserId = getAllSnippetWithUserId;
+exports.deleteLayout = deleteLayout;

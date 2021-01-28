@@ -40,6 +40,10 @@ app.get('/template/getVisualPageWithId/:content_uid/:visual_id', mongooseMethods
 app.post('/template/newVisualPage', mongooseMethods.createNewVisualPage)
 app.put('/template/updateVisualPage/:content_uid/:visual_id', mongooseMethods.updateVisualPage)
 
+
+app.get('/snippet/:userId', mongooseMethods.getAllSnippetWithUserId)
+app.delete('/delete/snippet/:layoutId', mongooseMethods.deleteLayout)
+
 app.use((req, res, next) => {
     console.log(req.method, req.url)
     const error = new HttpError('Could not find this route.', 404);
@@ -57,8 +61,8 @@ app.use((error, req, res, next) => {
 
 
 mongoose.connect(url, { useUnifiedTopology: true, useNewUrlParser: true }).then((res) => {
-    app.listen(process.env.PORT || 5000)
     console.log('Connected to database')
+    app.listen(process.env.PORT || 5000)
 }).catch((err) => {
     console.log(err)
 })
